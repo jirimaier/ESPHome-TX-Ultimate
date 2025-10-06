@@ -16,6 +16,12 @@ substitutions:
 
   TAG_STD_HW_VIBRATION: std.hw.vibration
 
+globals:
+  - id: touch_vibration_press_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
 binary_sensor:
   - id: bs_vibrating
     name: Vibrating
@@ -95,8 +101,14 @@ script:
     mode: restart
     then:
       - lambda: |-
-          if (sl_touch_vibration_feedback->state != "Disabled")
-            vibrate->execute();
+          const auto &mode = sl_touch_vibration_feedback->state;
+          if (mode == "On press" || mode == "Always") {
+            id(touch_vibration_press_active) = false;
+            if (id(sw_vibration_motor).state)
+              id(sw_vibration_motor).turn_off();
+          }
+          if (mode == "On release" || mode == "Always")
+            id(vibrate).execute();
 
   - id: !extend touch_on_press
     then:
@@ -106,8 +118,12 @@ script:
     mode: restart
     then:
       - lambda: |-
-          if (sl_touch_vibration_feedback->state == "On press" or sl_touch_vibration_feedback->state == "Always")
-            vibrate->execute();
+          const auto &mode = sl_touch_vibration_feedback->state;
+          if (mode == "On press" || mode == "Always") {
+            id(touch_vibration_press_active) = true;
+            if (!id(sw_vibration_motor).state)
+              id(sw_vibration_motor).turn_on();
+          }
 
   - id: !extend touch_on_release
     then:
@@ -117,8 +133,14 @@ script:
     mode: restart
     then:
       - lambda: |-
-          if (sl_touch_vibration_feedback->state == "On release" or sl_touch_vibration_feedback->state == "Always")
-            vibrate->execute();
+          const auto &mode = sl_touch_vibration_feedback->state;
+          if (mode == "On press" || mode == "Always") {
+            id(touch_vibration_press_active) = false;
+            if (id(sw_vibration_motor).state)
+              id(sw_vibration_motor).turn_off();
+          }
+          if (mode == "On release" || mode == "Always")
+            id(vibrate).execute();
 
   - id: vibrate
     mode: restart
@@ -158,10 +180,14 @@ switch:
             state: !lambda return x;
     on_turn_on:
       then:
-        - delay: ${vibration_max_duration}
         - if:
             condition:
-              switch.is_on: sw_vibration_motor
+              lambda: return !id(touch_vibration_press_active);
             then:
-              - switch.turn_off: sw_vibration_motor
+              - delay: ${vibration_max_duration}
+              - if:
+                  condition:
+                    switch.is_on: sw_vibration_motor
+                  then:
+                    - switch.turn_off: sw_vibration_motor
 ...
