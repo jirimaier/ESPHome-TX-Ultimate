@@ -121,8 +121,7 @@ script:
           const auto &mode = sl_touch_vibration_feedback->state;
           if (mode == "On press" || mode == "Always") {
             id(touch_vibration_press_active) = true;
-            if (!id(sw_vibration_motor).state)
-              id(sw_vibration_motor).turn_on();
+            id(touch_vibration_press_pattern).execute();
           }
 
   - id: !extend touch_on_release
@@ -138,9 +137,23 @@ script:
             id(touch_vibration_press_active) = false;
             if (id(sw_vibration_motor).state)
               id(sw_vibration_motor).turn_off();
+            id(touch_vibration_press_pattern).stop();
           }
           if (mode == "On release" || mode == "Always")
             id(vibrate).execute();
+
+  - id: touch_vibration_press_pattern
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: return id(touch_vibration_press_active);
+          then:
+            - switch.turn_on: sw_vibration_motor
+            - delay: 10ms
+            - switch.turn_off: sw_vibration_motor
+            - delay: 10ms
+      - switch.turn_off: sw_vibration_motor
 
   - id: vibrate
     mode: restart
