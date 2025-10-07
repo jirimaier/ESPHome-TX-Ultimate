@@ -111,10 +111,8 @@ esphome:
 
 external_components:
   - source:
-      type: git
-      url: https://github.com/edwardtfn/TX-Ultimate-Easy
-      ref: v${version}
-    refresh: 1h
+      type: local
+      path: ESPHome-TX-Ultimate/components/
     components:
       - tx_ultimate_easy
 

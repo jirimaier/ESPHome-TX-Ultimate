@@ -1,11 +1,14 @@
 // tx_ultimate_easy_touch.cpp
 
-#ifdef TX_ULTIMATE_EASY_CORE_HW_TOUCH
+//#ifdef TX_ULTIMATE_EASY_CORE_HW_TOUCH
 
 #include "esphome/core/log.h"
 #include "tx_ultimate_easy_touch.h"
 #include <cinttypes>
 #include <string>
+#include "driver/gpio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 namespace esphome {
     namespace tx_ultimate_easy {
@@ -13,8 +16,20 @@ namespace esphome {
         // Log tag
         static const char *TAG = "tx_ultimate_easy.touch";
 
+        static long last_haptic_time = -10000;
+
         void TxUltimateEasy::setup() {
             ESP_LOGI(TAG, "TX Ultimate Easy is initialized");
+            // Configure haptic motor GPIO pin as an output
+            gpio_config_t io_conf;
+            io_conf.intr_type = GPIO_INTR_DISABLE;
+            io_conf.mode = GPIO_MODE_OUTPUT;
+            io_conf.pin_bit_mask = (1ULL << 21);
+            io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+            io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+            gpio_config(&io_conf);
+            // Ensure haptic motor is off initially
+            gpio_set_level(static_cast<gpio_num_t>(21), 0);
         }
 
         void TxUltimateEasy::loop() {
@@ -22,6 +37,10 @@ namespace esphome {
             std::array<int, UART_RECEIVED_BYTES_SIZE> uart_received_bytes{};
             int byte = -1;
             int i = 0;
+
+            if (millis() - last_haptic_time > 30) {
+                gpio_set_level(static_cast<gpio_num_t>(21), 0);
+            }
 
             while (this->available()) {
                 byte = this->read();
@@ -77,7 +96,7 @@ namespace esphome {
             // Calculate button width (rounds up to ensure full coverage)
             const uint8_t width =
                 (TOUCH_MAX_POSITION + this->gang_count_) / this->gang_count_;  // Width of each button region
-            if (width < 1)  // Invalid width - and prevents division by zero 
+            if (width < 1)  // Invalid width - and prevents division by zero
                 return 0;
             const uint8_t button = std::min(
                 static_cast<uint8_t>((position / width) + 1), // Convert position to button index
@@ -98,10 +117,13 @@ namespace esphome {
                         ESP_LOGV(TAG, "Touch - Released (x=%d)", tp.x);
                         this->trigger_release_.trigger(tp);
                     }
+                    gpio_set_level(static_cast<gpio_num_t>(21), 0);
                     break;
 
                 case TOUCH_STATE_PRESS:
                     ESP_LOGV(TAG, "Touch - Pressed (x=%d)", tp.x);
+                    last_haptic_time = millis();
+                    gpio_set_level(static_cast<gpio_num_t>(21), 1);
                     this->trigger_touch_.trigger(tp);
                     break;
 
@@ -126,9 +148,9 @@ namespace esphome {
         }
 
         bool TxUltimateEasy::is_valid_data(const std::array<int, UART_RECEIVED_BYTES_SIZE> &uart_received_bytes) {
-            if (uart_received_bytes[0] != HEADER_BYTE_1 || 
-                uart_received_bytes[1] != HEADER_BYTE_2 || 
-                uart_received_bytes[2] != VALID_DATA_BYTE_2 || 
+            if (uart_received_bytes[0] != HEADER_BYTE_1 ||
+                uart_received_bytes[1] != HEADER_BYTE_2 ||
+                uart_received_bytes[2] != VALID_DATA_BYTE_2 ||
                 uart_received_bytes[3] != VALID_DATA_BYTE_3) {
                 return false;
             }
@@ -191,7 +213,7 @@ namespace esphome {
             if (state == TOUCH_STATE_RELEASE && uart_received_bytes[5] == TOUCH_STATE_MULTI_TOUCH)
                 state = TOUCH_STATE_MULTI_TOUCH;
             if (state == TOUCH_STATE_SWIPE) {
-                state = (uart_received_bytes[5] == TOUCH_STATE_SWIPE_RIGHT) ? TOUCH_STATE_SWIPE_RIGHT : 
+                state = (uart_received_bytes[5] == TOUCH_STATE_SWIPE_RIGHT) ? TOUCH_STATE_SWIPE_RIGHT :
                         (uart_received_bytes[5] == TOUCH_STATE_SWIPE_LEFT) ? TOUCH_STATE_SWIPE_LEFT : state;
             }
             return state;
@@ -232,4 +254,4 @@ namespace esphome {
     } // namespace tx_ultimate_easy
 } // namespace esphome
 
-#endif  // TX_ULTIMATE_EASY_CORE_HW_TOUCH
+//#endif  // TX_ULTIMATE_EASY_CORE_HW_TOUCH
