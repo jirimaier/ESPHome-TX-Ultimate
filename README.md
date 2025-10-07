@@ -352,6 +352,7 @@ If the device isn't discovered automatically:
 3. Optional: Configure advanced features
    - LED behaviors
    - Touch duration
+   - Button click duration limit
    - Haptic feedback
    - Audio feedback
 4. Test your configuration:
@@ -378,6 +379,7 @@ After installation, you can:
 TX Ultimate Easy offers extensive configuration options:
 
 - Touch panel gestures
+- Button click duration limit
 - LED colors, patterns, and behaviors
 - Relay modes and functions
 - Audio and haptic feedback settings
