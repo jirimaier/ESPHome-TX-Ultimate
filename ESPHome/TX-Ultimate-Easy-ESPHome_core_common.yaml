@@ -109,13 +109,6 @@ esphome:
       then:
         - script.execute: boot_done
 
-external_components:
-  - source:
-      type: local
-      path: ESPHome-TX-Ultimate/components/
-    components:
-      - tx_ultimate_easy
-
 globals:
   - id: gang_count
     type: uint8_t
